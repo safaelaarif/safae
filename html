@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trinity Agentic Interface</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; height: 100vh; }
+        .chat-wrap { width: 100%; max-width: 900px; display: flex; flex-direction: column; background: var(--card); box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        #chat-box { flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 1rem; scroll-behavior: smooth; }
+        .msg { max-width: 85%; padding: 1rem; border-radius: 12px; line-height: 1.6; font-size: 15px; white-space: pre-wrap; }
+        .user { align-self: flex-end; background: var(--accent); color: #000; font-weight: 500; }
+        .ai { align-self: flex-start; background: #334155; border: 1px solid #475569; }
+        .input-bar { padding: 1.5rem; background: #0f172a; display: flex; gap: 10px; }
+        input { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; outline: none; transition: 0.2s; }
+        input:focus { border-color: var(--accent); }
+        button { padding: 0 24px; background: var(--accent); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background: #475569; cursor: not-allowed; }
+        .loading { font-style: italic; color: var(--accent); font-size: 12px; margin-top: 5px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="chat-wrap">
+    <div id="chat-box">
+        <div class="msg ai">**System:** Trinity-Large-Preview Active. Context window set to 128k. How can I assist with your complex toolchains or creative narratives?</div>
+    </div>
+    <div id="loading-indicator" class="loading" style="padding-left: 2rem;">Trinity is thinking...</div>
+    <div class="input-bar">
+        <input type="text" id="user-input" placeholder="Enter a complex prompt or task...">
+        <button id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    // Configuration
+    const API_KEY = "YOUR_KEY_HERE"; // Keep this private
+    const MODEL = "arcee-ai/trinity-large-preview:free";
+    
+    // Conversation State
+    let messageHistory = [
+        { role: "system", content: "You are Trinity-Large-Preview, a frontier-scale MoE model by Arcee. You excel at agentic tasks, long-context reasoning, and creative storytelling." }
+    ];
+
+    async function sendMessage() {
+        const input = document.getElementById('user-input');
+        const btn = document.getElementById('send-btn');
+        const loader = document.getElementById('loading-indicator');
+        const text = input.value.trim();
+
+        if (!text) return;
+
+        // UI Update
+        appendUI('user', text);
+        messageHistory.push({ role: "user", content: text });
+        input.value = '';
+        btn.disabled = true;
+        loader.style.display = 'block';
+
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": window.location.href, // Optional for OpenRouter
+                },
+                body: JSON.stringify({
+                    "model": MODEL,
+                    "messages": messageHistory,
+                    "temperature": 0.7 // Good balance for creative + agentic
+                })
+            });
+
+            const data = await response.json();
+            const aiText = data.choices[0].message.content;
+
+            appendUI('ai', aiText);
+            messageHistory.push({ role: "assistant", content: aiText });
+
+        } catch (err) {
+            appendUI('ai', "Error: Failed to fetch response. Check console.");
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            loader.style.display = 'none';
+        }
+    }
+
+    function appendUI(role, text) {
+        const box = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+        div.innerText = text;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // Enter Key Support
+    document.getElementById('user-input').addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') sendMessage();
+    });
+</script>
+
+</body>
+</html>
